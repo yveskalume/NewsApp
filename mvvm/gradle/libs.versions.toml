@@ -11,6 +11,7 @@ composeBom = "2025.12.01"
 ktor = "3.3.3"
 koin = "4.1.1"
 kotlinxSerialization = "1.9.0"
+kotlinxCoroutines = "1.10.2"
 secretsGradle = "2.0.1"
 navigation3 = "1.0.0"
 coil = "3.3.0"
@@ -49,6 +50,9 @@ koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compos
 
 # Kotlinx Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# Kotlinx Coroutines Test
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 
 # Navigation 3
 navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }

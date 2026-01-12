@@ -45,6 +45,39 @@ Feel free to open issues or PRs if you want to:
 - Improve existing implementations
 - Fix bugs or improve documentation
 
+## Setup
+
+1. Create an account on [newsapi.org](https://newsapi.org/)
+2. Get your API key from the dashboard
+3. Add your API key to the `local.properties` file in the project root:
+
+```properties
+NEWS_API_KEY=your_api_key_here
+```
+
+## Opening Projects in Android Studio
+
+Use the `studiow` script to quickly open subprojects in Android Studio:
+
+```bash
+# Open the MVVM project
+./studiow mvvm
+
+# Open the entire workspace
+./studiow all
+
+# Clean build caches before opening
+./studiow --clean mvvm
+
+# List all available projects
+./studiow --list
+
+# Show help
+./studiow --help
+```
+
+You can also open any project by its path: `./studiow ./path/to/project`
+
 ## License
 
 This project is open source and available for educational purposes.

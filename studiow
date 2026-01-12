@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+
+#
+# Script to open a specific subproject in Android Studio
+# Inspired by: https://github.com/androidx/androidx/blob/androidx-main/studiow
+#
+
+set -e
+
+function usage() {
+    echo "Usage: studiow [OPTIONS] <project>"
+    echo
+    echo "Opens a specific subproject in Android Studio"
+    echo
+    echo "OPTIONS"
+    echo "  --help, -h           Show this help message"
+    echo "  --clean              Clean build caches before opening"
+    echo "  --list, -l           List available projects"
+    echo
+    echo "PROJECTS"
+    echo "  mvvm                 Open the MVVM architecture project"
+    echo "  all                  Open the entire workspace"
+    echo
+    echo "Or specify a project path directly:"
+    echo "  studiow ./mvvm"
+    echo
+    exit 1
+}
+
+function list_projects() {
+    echo "Available projects:"
+    echo
+    # Find directories containing build.gradle or build.gradle.kts
+    for dir in */; do
+        if [ -f "${dir}build.gradle.kts" ] || [ -f "${dir}build.gradle" ] || [ -f "${dir}settings.gradle.kts" ] || [ -f "${dir}settings.gradle" ]; then
+            echo "  ${dir%/}"
+        fi
+    done
+    echo
+    exit 0
+}
+
+function find_android_studio() {
+    # Check for custom installation via ANDROID_STUDIO_PATH env variable
+    if [ -n "$ANDROID_STUDIO_PATH" ] && [ -d "$ANDROID_STUDIO_PATH" ]; then
+        echo "$ANDROID_STUDIO_PATH"
+        return 0
+    fi
+    
+    # Check for JetBrains Toolbox 'studio' command (preferred)
+    if [ -f "$HOME/Library/Application Support/JetBrains/Toolbox/scripts/studio" ]; then
+        echo "toolbox"
+        return 0
+    fi
+    
+    # macOS: Check user Applications folder (JetBrains Toolbox installs here)
+    if [ -d "$HOME/Applications/Android Studio.app" ]; then
+        echo "$HOME/Applications/Android Studio.app"
+        return 0
+    fi
+    
+    if [ -d "$HOME/Applications/Android Studio Preview.app" ]; then
+        echo "$HOME/Applications/Android Studio Preview.app"
+        return 0
+    fi
+    
+    # macOS: Check system Applications folder
+    if [ -d "/Applications/Android Studio.app" ]; then
+        echo "/Applications/Android Studio.app"
+        return 0
+    fi
+    
+    if [ -d "/Applications/Android Studio Preview.app" ]; then
+        echo "/Applications/Android Studio Preview.app"
+        return 0
+    fi
+    
+    # Linux: Check common installation paths
+    if [ -d "$HOME/android-studio" ]; then
+        echo "$HOME/android-studio"
+        return 0
+    fi
+    
+    if [ -d "/opt/android-studio" ]; then
+        echo "/opt/android-studio"
+        return 0
+    fi
+    
+    if [ -d "/usr/local/android-studio" ]; then
+        echo "/usr/local/android-studio"
+        return 0
+    fi
+    
+    echo ""
+    return 1
+}
+
+function open_in_studio() {
+    local project_path="$1"
+    local studio_path
+    
+    studio_path=$(find_android_studio)
+    
+    if [ -z "$studio_path" ]; then
+        echo "Error: Could not find Android Studio installation."
+        echo "Please set ANDROID_STUDIO_PATH environment variable to your Android Studio installation path."
+        exit 1
+    fi
+    
+    echo "Opening $project_path in Android Studio..."
+    
+    # JetBrains Toolbox 'studio' command
+    if [ "$studio_path" == "toolbox" ]; then
+        "$HOME/Library/Application Support/JetBrains/Toolbox/scripts/studio" "$project_path" &
+        return 0
+    fi
+    
+    # macOS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open -a "$studio_path" "$project_path"
+    # Linux
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        "$studio_path/bin/studio.sh" "$project_path" &
+    # Windows (Git Bash / WSL)
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        "$studio_path/bin/studio64.exe" "$project_path" &
+    else
+        echo "Error: Unsupported operating system: $OSTYPE"
+        exit 1
+    fi
+}
+
+function clean_project() {
+    local project_path="$1"
+    
+    echo "Cleaning project caches..."
+    
+    # Clean .gradle directory
+    if [ -d "$project_path/.gradle" ]; then
+        echo "  Removing $project_path/.gradle"
+        rm -rf "$project_path/.gradle"
+    fi
+    
+    # Clean build directories
+    find "$project_path" -type d -name "build" -exec rm -rf {} + 2>/dev/null || true
+    
+    # Clean .idea caches (but keep user settings)
+    if [ -d "$project_path/.idea/caches" ]; then
+        echo "  Removing $project_path/.idea/caches"
+        rm -rf "$project_path/.idea/caches"
+    fi
+    
+    echo "Clean completed."
+}
+
+# Change to script directory
+cd "$(dirname "$0")"
+SCRIPT_DIR="$(pwd)"
+
+# Parse arguments
+clean=false
+project=""
+
+while [ "$1" != "" ]; do
+    arg="$1"
+    shift
+    
+    case "$arg" in
+        --help|-h)
+            usage
+            ;;
+        --clean)
+            clean=true
+            ;;
+        --list|-l)
+            list_projects
+            ;;
+        *)
+            if [ -n "$project" ]; then
+                echo "Error: Cannot specify more than one project"
+                usage
+            fi
+            project="$arg"
+            ;;
+    esac
+done
+
+# Check if project was specified
+if [ -z "$project" ]; then
+    echo "Error: Project is required"
+    echo
+    usage
+fi
+
+# Resolve project path
+project_path=""
+skip_gradle_check=false
+
+case "$project" in
+    mvvm|m)
+        project_path="$SCRIPT_DIR/mvvm"
+        ;;
+    all|a)
+        project_path="$SCRIPT_DIR"
+        skip_gradle_check=true
+        ;;
+    *)
+        # Check if it's a direct path
+        if [ -d "$project" ]; then
+            project_path="$(cd "$project" && pwd)"
+        elif [ -d "$SCRIPT_DIR/$project" ]; then
+            project_path="$SCRIPT_DIR/$project"
+        else
+            echo "Error: Unknown project '$project'"
+            echo
+            list_projects
+            exit 1
+        fi
+        ;;
+esac
+
+# Verify project exists and has gradle files
+if [ "$skip_gradle_check" = false ]; then
+    if [ ! -f "$project_path/build.gradle.kts" ] && [ ! -f "$project_path/build.gradle" ] && [ ! -f "$project_path/settings.gradle.kts" ] && [ ! -f "$project_path/settings.gradle" ]; then
+        echo "Error: '$project_path' does not appear to be a valid Gradle project"
+        exit 1
+    fi
+fi
+
+echo "Project: $project_path"
+
+# Clean if requested
+if [ "$clean" = true ]; then
+    clean_project "$project_path"
+fi
+
+# Open in Android Studio
+open_in_studio "$project_path"
+
+echo "Done!"

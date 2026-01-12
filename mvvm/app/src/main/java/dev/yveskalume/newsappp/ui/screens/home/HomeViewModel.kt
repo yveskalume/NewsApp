@@ -12,11 +12,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -53,6 +52,8 @@ class HomeViewModel(
         SourcesUiState.Success(sources = sources, selected = selectedSource)
     }.onStart {
         sourcesStateFlow.update { sourcesRepository.getSources().getOrThrow() }
+    }.catch<SourcesUiState> {
+        emit(SourcesUiState.Error(it.message ?: "Failed to load sources"))
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -107,6 +108,7 @@ class HomeViewModel(
                 val merged = base.articles + pagingState.newsOrEmpty
                 base.copy(articles = merged, pagingState = pagingState)
             }
+
             else -> base
         }
     }.stateIn(

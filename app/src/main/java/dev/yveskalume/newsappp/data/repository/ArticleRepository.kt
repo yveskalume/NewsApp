@@ -1,8 +1,8 @@
 package dev.yveskalume.newsappp.data.repository
 
-import dev.yveskalume.newsappp.domain.model.NewsResponse
+import dev.yveskalume.newsappp.domain.model.Article
 
-interface NewsRepository {
+interface ArticleRepository {
     /**
      * Fetches top headlines
      * @param query Keywords or a phrase to search for (optional)
@@ -15,5 +15,5 @@ interface NewsRepository {
         sources: String? = null,
         pageSize: Int = 20,
         page: Int = 1
-    ): Result<NewsResponse>
+    ): Result<List<Article>>
 }

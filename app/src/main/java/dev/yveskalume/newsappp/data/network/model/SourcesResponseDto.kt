@@ -1,6 +1,6 @@
 package dev.yveskalume.newsappp.data.network.model
 
-import dev.yveskalume.newsappp.domain.model.SourcesResponse
+import dev.yveskalume.newsappp.domain.model.SourceItem
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -16,9 +16,6 @@ data class SourcesResponseDto(
     val message: String? = null
 )
 
-fun SourcesResponseDto.toDomain(): SourcesResponse {
-    return SourcesResponse(
-        status = status,
-        sources = sources?.mapNotNull { it.toDomain() } ?: emptyList()
-    )
+fun SourcesResponseDto.toDomain(): List<SourceItem> {
+    return sources?.mapNotNull { it.toDomain() } ?: emptyList()
 }

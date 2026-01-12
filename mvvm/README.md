@@ -1,10 +1,10 @@
 # MVVM Implementation
 
-## 📱 Overview
+## Overview
 
 This is a classic MVVM (Model-View-ViewModel) implementation of the News app, following modern Android development best practices.
 
-## 🎯 Key Patterns
+## Key Patterns
 
 ### Initial Data Fetching
 
@@ -33,10 +33,9 @@ This approach:
 
 ### State as Sealed Interface
 
-UI states are represented using `sealed interface` annotated with `@Stable`:
+UI states are represented using `sealed interface` :
 
 ```kotlin
-@Stable
 sealed interface NewsUiState {
     data object Loading : NewsUiState
     data class Success(val articles: List<Article>, ...) : NewsUiState
@@ -44,7 +43,6 @@ sealed interface NewsUiState {
 }
 ```
 
-Nested states (like paging) also use sealed interfaces for type-safe handling.
 
 ### ViewModel Interface for Previews
 
@@ -89,14 +87,3 @@ private fun HomeScreenPreview(...) {
 ```
 
 This keeps previews working without needing to instantiate real ViewModels with their dependencies.
-
-## 🛠️ Tech Stack
-
-- **Kotlin** + **Coroutines/Flow**
-- **Jetpack Compose**
-- **Koin** for DI
-- **Kotlin Serialization**
-
----
-
-**Note**: This is part of the Architecture Madness project.

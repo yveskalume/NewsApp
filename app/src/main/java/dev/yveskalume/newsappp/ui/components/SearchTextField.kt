@@ -3,7 +3,6 @@ package dev.yveskalume.newsappp.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,11 +26,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.yveskalume.newsappp.R
-import dev.yveskalume.newsappp.ui.screens.search.SearchUiState
 
 @Composable
 fun SearchTextField(
-    uiState: SearchUiState,
+    queryText: String,
     onQueryChange: (String) -> Unit,
     onClearSearch: () -> Unit,
 ) {
@@ -44,7 +42,7 @@ fun SearchTextField(
     }
 
     OutlinedTextField(
-        value = uiState.query,
+        value = queryText,
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
@@ -62,7 +60,7 @@ fun SearchTextField(
         },
         trailingIcon = {
             AnimatedVisibility(
-                visible = uiState.query.isNotEmpty(),
+                visible = queryText.isNotEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {

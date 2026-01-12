@@ -6,18 +6,16 @@ import dev.yveskalume.newsappp.ui.screens.search.SearchUiState
 class SearchScreenPreviewProvider : PreviewParameterProvider<SearchUiState> {
 
     override val values: Sequence<SearchUiState> = sequenceOf(
-        SearchUiState.Idle(query = ""),
-        SearchUiState.Loading(query = "android"),
+        SearchUiState.Idle,
+        SearchUiState.Loading,
         SearchUiState.Success(
-            query = "android",
             news = PreviewSampleData.sampleArticles
         ),
         SearchUiState.Success(
-            query = "android",
             news = PreviewSampleData.sampleArticles,
             pagingState = SearchUiState.PagingState.Loading
         ),
-        SearchUiState.Empty(query = "somethingthatdoesnotexist"),
-        SearchUiState.Error(query = "android", message = "Search failed. Please retry.")
+        SearchUiState.Empty,
+        SearchUiState.Error(message = "Search failed. Please retry.")
     )
 }

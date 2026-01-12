@@ -34,7 +34,8 @@ class SearchViewModel(
     private val articleRepository: ArticleRepository
 ) : ViewModel(), ISearchViewModel {
 
-    private val queryFlow = MutableStateFlow("")
+    val queryUiState: StateFlow<String>
+        field = MutableStateFlow<String>("")
 
     /**
      * Used to force re-search when the same query is submitted again.
@@ -49,21 +50,21 @@ class SearchViewModel(
      * Paging changes must not invalidate this flow, otherwise we'll refetch page=1 on loadMore().
      */
     private val baseSearchFlow: Flow<SearchUiState> = combine(
-        queryFlow.debounce(500).distinctUntilChanged(),
+        queryUiState.debounce(500).distinctUntilChanged(),
         searchTrigger.onStart { emit(Unit) },
     ) { query, _ ->
         query
     }.flatMapLatest { query ->
         flow {
             if (query.isBlank()) {
-                emit(SearchUiState.Idle(query = ""))
+                emit(SearchUiState.Idle)
                 return@flow
             }
 
             // New base fetch, reset paging accumulator so we don't append stale pages.
             pagingStateFlow.value = PagingState.Idle(currentPage = 1)
 
-            emit(SearchUiState.Loading(query = query))
+            emit(SearchUiState.Loading)
 
             emit(
                 articleRepository.getTopHeadlines(
@@ -73,10 +74,9 @@ class SearchViewModel(
                 ).fold(
                     onSuccess = { articles ->
                         if (articles.isEmpty()) {
-                            SearchUiState.Empty(query = query)
+                            SearchUiState.Empty
                         } else {
                             SearchUiState.Success(
-                                query = query,
                                 news = articles,
                                 pagingState = PagingState.Idle(currentPage = 1)
                             )
@@ -84,7 +84,6 @@ class SearchViewModel(
                     },
                     onFailure = { error ->
                         SearchUiState.Error(
-                            query = query,
                             message = error.message ?: "Search failed"
                         )
                     }
@@ -103,16 +102,17 @@ class SearchViewModel(
                 val merged = base.news + appended
                 base.copy(news = merged, pagingState = pagingState)
             }
+
             else -> base
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = SearchUiState.Idle()
+        initialValue = SearchUiState.Idle
     )
 
     override fun onQueryChange(query: String) {
-        queryFlow.value = query
+        queryUiState.value = query
         // New query, reset paging.
         pagingStateFlow.value = PagingState.Idle(currentPage = 1)
         // Trigger a new search (debouncing is on queryFlow).
@@ -120,7 +120,7 @@ class SearchViewModel(
     }
 
     override fun clearSearch() {
-        queryFlow.value = ""
+        queryUiState.value = ""
         pagingStateFlow.value = PagingState.Idle(currentPage = 1)
         searchTrigger.tryEmit(Unit)
     }
@@ -134,7 +134,7 @@ class SearchViewModel(
             pagingStateFlow.value = PagingState.Loading
 
             articleRepository.getTopHeadlines(
-                query = queryFlow.value,
+                query = queryUiState.value,
                 pageSize = PAGE_SIZE,
                 page = nextPage
             ).onSuccess { articles ->

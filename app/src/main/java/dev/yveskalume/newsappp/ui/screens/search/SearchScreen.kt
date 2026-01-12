@@ -54,12 +54,14 @@ fun SearchScreenRoute(
     viewModel: SearchViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    SearchScreen(uiState = uiState, viewModel = viewModel)
+    val queryText by viewModel.queryUiState.collectAsStateWithLifecycle()
+    SearchScreen(uiState = uiState, queryText = queryText, viewModel = viewModel)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchScreen(
+    queryText: String,
     uiState: SearchUiState,
     viewModel: ISearchViewModel
 ) {
@@ -88,7 +90,7 @@ private fun SearchScreen(
                 .paddingAndConsumeWindowInsets(paddingValues)
         ) {
             SearchTextField(
-                uiState = uiState,
+                queryText = queryText,
                 onQueryChange = viewModel::onQueryChange,
                 onClearSearch = viewModel::clearSearch
             )
@@ -183,6 +185,7 @@ private fun SearchScreenPreview(
 ) {
     NewsApppTheme {
         SearchScreen(
+            queryText = "",
             uiState = uiState,
             viewModel = object : ISearchViewModel {
                 override fun onQueryChange(query: String) {}

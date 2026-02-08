@@ -1,61 +1,68 @@
 package dev.yveskalume.newsappp.ui.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import dev.yveskalume.newsappp.ui.screens.home.NewsUiState
+import dev.yveskalume.newsappp.ui.screens.home.ArticleUiState
+import dev.yveskalume.newsappp.ui.screens.home.HomeUiState
+import dev.yveskalume.newsappp.ui.screens.home.RefreshUiState
 import dev.yveskalume.newsappp.ui.screens.home.SourcesUiState
 
-data class HomeScreenPreviewData(
-    val sourcesUiState: SourcesUiState,
-    val newsUiState: NewsUiState
-)
+class HomeScreenPreviewProvider : PreviewParameterProvider<HomeUiState> {
 
-class HomeScreenPreviewProvider : PreviewParameterProvider<HomeScreenPreviewData> {
-
-    override val values: Sequence<HomeScreenPreviewData> = sequenceOf(
+    override val values: Sequence<HomeUiState> = sequenceOf(
         // Success state with articles
-        HomeScreenPreviewData(
+        HomeUiState(
             sourcesUiState = SourcesUiState.Success(
                 sources = PreviewSampleData.sampleSources,
                 selected = null
             ),
-            newsUiState = NewsUiState.Success(
+            articleUiState = ArticleUiState.Success(
                 articles = PreviewSampleData.sampleArticles
-            )
+            ),
+            selectedSource = null,
+            refreshUiState = RefreshUiState.Idle
         ),
         // Success state with selected source
-        HomeScreenPreviewData(
+        HomeUiState(
             sourcesUiState = SourcesUiState.Success(
                 sources = PreviewSampleData.sampleSources,
                 selected = PreviewSampleData.sampleSources.first()
             ),
-            newsUiState = NewsUiState.Success(
+            articleUiState = ArticleUiState.Success(
                 articles = PreviewSampleData.sampleArticles.take(2)
-            )
+            ),
+            selectedSource = PreviewSampleData.sampleSources.first(),
+            refreshUiState = RefreshUiState.Idle
         ),
         // Loading state
-        HomeScreenPreviewData(
+        HomeUiState(
             sourcesUiState = SourcesUiState.Loading,
-            newsUiState = NewsUiState.Loading
+            articleUiState = ArticleUiState.Loading,
+            selectedSource = null,
+            refreshUiState = RefreshUiState.Idle
         ),
         // Error state
-        HomeScreenPreviewData(
+        HomeUiState(
             sourcesUiState = SourcesUiState.Success(
                 sources = PreviewSampleData.sampleSources,
                 selected = null
             ),
-            newsUiState = NewsUiState.Error(
+            articleUiState = ArticleUiState.Error(
                 message = "Failed to load news. Please check your internet connection."
-            )
+            ),
+            selectedSource = null,
+            refreshUiState = RefreshUiState.Idle
         ),
         // Empty state
-        HomeScreenPreviewData(
+        HomeUiState(
             sourcesUiState = SourcesUiState.Success(
                 sources = PreviewSampleData.sampleSources,
                 selected = null
             ),
-            newsUiState = NewsUiState.Success(
+            articleUiState = ArticleUiState.Success(
                 articles = emptyList()
-            )
+            ),
+            selectedSource = null,
+            refreshUiState = RefreshUiState.Idle
         )
     )
 }

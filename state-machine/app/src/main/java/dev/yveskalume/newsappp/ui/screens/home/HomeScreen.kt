@@ -23,11 +23,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.yveskalume.newsappp.R
+import dev.yveskalume.newsappp.core.getScopedViewModel
 import dev.yveskalume.newsappp.domain.model.SourceItem
 import dev.yveskalume.newsappp.ui.components.EmptyContent
 import dev.yveskalume.newsappp.ui.components.ErrorContent
@@ -35,16 +38,13 @@ import dev.yveskalume.newsappp.ui.components.NewsCard
 import dev.yveskalume.newsappp.ui.components.NewsCardShimmer
 import dev.yveskalume.newsappp.ui.components.SourcesRow
 import dev.yveskalume.newsappp.ui.components.SourcesRowShimmer
+import dev.yveskalume.newsappp.ui.preview.HomeScreenPreviewProvider
 import dev.yveskalume.newsappp.ui.screens.home.components.TopAppBar
+import dev.yveskalume.newsappp.ui.screens.home.di.HomeDiContainer
+import dev.yveskalume.newsappp.ui.theme.NewsApppTheme
 import dev.yveskalume.newsappp.util.ListPagingEffect
 import dev.yveskalume.newsappp.util.paddingAndConsumeWindowInsets
 import kotlinx.serialization.Serializable
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import dev.yveskalume.newsappp.ui.preview.HomeScreenPreviewData
-import dev.yveskalume.newsappp.ui.preview.HomeScreenPreviewProvider
-import dev.yveskalume.newsappp.ui.theme.NewsApppTheme
-import org.koin.androidx.compose.koinViewModel
 
 @Serializable
 data object HomeRoute : NavKey
@@ -59,27 +59,21 @@ fun NavBackStack<NavKey>.navigateToHome() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreenRoute(
-    viewModel: HomeViewModel = koinViewModel()
+    stateManager: HomeViewModel = getScopedViewModel(HomeDiContainer)
 ) {
-    val sourcesUiState by viewModel.sourcesUiState.collectAsStateWithLifecycle()
-    val newsUiState by viewModel.newsUiState.collectAsStateWithLifecycle()
-    val refreshUiState by viewModel.refreshUiState.collectAsStateWithLifecycle()
+    val uiState by stateManager.uiState.collectAsStateWithLifecycle()
 
     HomeScreen(
-        newsUiState = newsUiState,
-        refreshUiState = refreshUiState,
-        viewModel = viewModel,
-        sourcesUiState = sourcesUiState
+        uiState = uiState,
+        onEvent = stateManager::onEvent
     )
 }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun HomeScreen(
-    newsUiState: NewsUiState,
-    refreshUiState: RefreshUiState,
-    viewModel: IHomeViewModel,
-    sourcesUiState: SourcesUiState
+    uiState: HomeUiState,
+    onEvent: (HomeEvent) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -89,7 +83,7 @@ private fun HomeScreen(
             TopAppBar(scrollBehavior = scrollBehavior)
         },
         bottomBar = {
-            AnimatedVisibility(visible = newsUiState.isLoadingMore) {
+            AnimatedVisibility(visible = uiState.articleUiState.isLoadingMore) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -97,18 +91,18 @@ private fun HomeScreen(
         }
     ) { paddingValues ->
         PullToRefreshBox(
-            isRefreshing = refreshUiState is RefreshUiState.Refreshing,
-            onRefresh = viewModel::refresh,
+            isRefreshing = uiState.refreshUiState is RefreshUiState.Refreshing,
+            onRefresh = { onEvent(HomeEvent.Refresh) },
             modifier = Modifier
                 .fillMaxSize()
                 .paddingAndConsumeWindowInsets(paddingValues)
         ) {
             HomeContent(
-                sourcesUiState = sourcesUiState,
-                newsUiState = newsUiState,
-                onSourceClick = viewModel::selectSource,
-                onRetry = viewModel::refresh,
-                onLoadMore = viewModel::loadMore
+                sourcesUiState = uiState.sourcesUiState,
+                articleUiState = uiState.articleUiState,
+                onSourceClick = { onEvent(HomeEvent.SelectSource(it)) },
+                onRetry = { onEvent(HomeEvent.Refresh) },
+                onLoadMore = { onEvent(HomeEvent.LoadMore) }
             )
         }
     }
@@ -118,7 +112,7 @@ private fun HomeScreen(
 @Composable
 private fun HomeContent(
     sourcesUiState: SourcesUiState,
-    newsUiState: NewsUiState,
+    articleUiState: ArticleUiState,
     onSourceClick: (SourceItem?) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -128,7 +122,7 @@ private fun HomeContent(
 
     ListPagingEffect(
         listState = listState,
-        canLoadMore = newsUiState.canLoadMore,
+        canLoadMore = articleUiState.canLoadMore,
         onLoadMore = onLoadMore
     )
 
@@ -138,10 +132,9 @@ private fun HomeContent(
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         sourceItems(sourcesUiState = sourcesUiState, onSourceClick = onSourceClick)
-        articleItems(newsUiState, onRetry)
+        articleItems(articleUiState, onRetry)
     }
 }
-
 
 
 private fun LazyListScope.sourceItems(
@@ -163,21 +156,21 @@ private fun LazyListScope.sourceItems(
 
 
 private fun LazyListScope.articleItems(
-    newsUiState: NewsUiState,
+    articleUiState: ArticleUiState,
     onRetry: () -> Unit
 ) {
-    when (newsUiState) {
-        is NewsUiState.Error -> {
+    when (articleUiState) {
+        is ArticleUiState.Error -> {
             item("news_error") {
                 ErrorContent(
-                    message = newsUiState.message,
+                    message = articleUiState.message,
                     onRetry = onRetry,
                     modifier = Modifier.height(400.dp)
                 )
             }
         }
 
-        NewsUiState.Loading -> {
+        ArticleUiState.Loading -> {
             items(5) {
                 NewsCardShimmer()
                 HorizontalDivider(
@@ -186,8 +179,8 @@ private fun LazyListScope.articleItems(
             }
         }
 
-        is NewsUiState.Success -> {
-            if (newsUiState.articles.isEmpty()) {
+        is ArticleUiState.Success -> {
+            if (articleUiState.articles.isEmpty()) {
                 item("empty_news") {
                     EmptyContent(
                         title = stringResource(R.string.no_news_available),
@@ -197,7 +190,7 @@ private fun LazyListScope.articleItems(
                 }
             } else {
                 items(
-                    items = newsUiState.articles,
+                    items = articleUiState.articles,
                     key = { it.url }
                 ) { article ->
                     NewsCard(article = article)
@@ -233,18 +226,12 @@ private fun SourceContent(
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenPreview(
-    @PreviewParameter(HomeScreenPreviewProvider::class) previewData: HomeScreenPreviewData
+    @PreviewParameter(HomeScreenPreviewProvider::class) uiState: HomeUiState
 ) {
     NewsApppTheme {
         HomeScreen(
-            newsUiState = previewData.newsUiState,
-            refreshUiState = RefreshUiState.Idle,
-            viewModel = object : IHomeViewModel {
-                override fun selectSource(source: SourceItem?) {}
-                override fun refresh() {}
-                override fun loadMore() {}
-            },
-            sourcesUiState = previewData.sourcesUiState
+            uiState = uiState,
+            onEvent = {}
         )
     }
 }

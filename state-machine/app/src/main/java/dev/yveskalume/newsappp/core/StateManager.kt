@@ -1,5 +1,6 @@
 package dev.yveskalume.newsappp.core
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
@@ -23,30 +24,15 @@ import kotlin.reflect.KClass
  * Uses Koin scope to resolve reducers dynamically
  */
 
-abstract class StateManager<S : State, E : Event>(
+class StateManager<S : State, E : Event>(
     private val scope: Scope,
     initialState: S,
 ) : ViewModel() {
 
-    private val stateFlow = MutableStateFlow(initialState)
+    val stateFlow = MutableStateFlow(initialState)
     private val eventFlow = MutableSharedFlow<E>()
     private var started = false
-    protected open fun onStateStarted() {}
 
-    val uiState: StateFlow<S> by lazy {
-        createViewStateFlow()
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.Lazily,
-                initialValue = stateFlow.value,
-            )
-    }
-
-    private fun createViewStateFlow(): Flow<S> = stateFlow
-        .onStart {
-            startProcessingEvents()
-            onStateStarted()
-        }
 
     fun onEvent(event: E) {
         viewModelScope.launch {
@@ -54,14 +40,14 @@ abstract class StateManager<S : State, E : Event>(
         }
     }
 
-    private fun startProcessingEvents() {
+    fun startProcessingEvents() {
         if (started) return
         started = true
         viewModelScope.launch {
             eventFlow.collect { event ->
                 val currentState = stateFlow.value
                 val reducer = findReducer(currentState::class, event::class)
-
+                Log.d("StateManager", "Processing event: $event, State is: ${currentState::class.simpleName}.")
                 reducer?.let {
                     val newState = it.reduce(currentState, event)
                     stateFlow.value = newState

@@ -36,7 +36,7 @@ class HomeViewModelTest {
         )
 
         // Then
-        assertEquals(NewsUiState.Loading, viewModel.newsUiState.value)
+        assertEquals(ArticleUiState.Loading, viewModel.articleUiState.value)
     }
 
     @Test
@@ -78,14 +78,14 @@ class HomeViewModelTest {
 
         // When
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Success)
-        val successState = newsState as NewsUiState.Success
+        val newsState = viewModel.articleUiState.value
+        assertTrue(newsState is ArticleUiState.Success)
+        val successState = newsState as ArticleUiState.Success
         assertEquals(FakeArticleRepositorySuccess.sampleArticles, successState.articles)
 
         collectJob.cancel()
@@ -101,16 +101,16 @@ class HomeViewModelTest {
 
         // When
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Success)
-        val successState = newsState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.Idle)
-        val pagingIdle = successState.pagingState as NewsUiState.PagingState.Idle
+        val newsState = viewModel.articleUiState.value
+        assertTrue(newsState is ArticleUiState.Success)
+        val successState = newsState as ArticleUiState.Success
+        assertTrue(successState.pagingState is ArticleUiState.PagingState.Idle)
+        val pagingIdle = successState.pagingState as ArticleUiState.PagingState.Idle
         assertEquals(1, pagingIdle.currentPage)
 
         collectJob.cancel()
@@ -131,14 +131,14 @@ class HomeViewModelTest {
 
         // When
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Error)
-        val errorState = newsState as NewsUiState.Error
+        val newsState = viewModel.articleUiState.value
+        assertTrue(newsState is ArticleUiState.Error)
+        val errorState = newsState as ArticleUiState.Error
         assertEquals(errorMessage, errorState.message)
 
         collectJob.cancel()
@@ -324,7 +324,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -346,7 +346,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -374,11 +374,11 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
-        val initialState = viewModel.newsUiState.value as NewsUiState.Success
+        val initialState = viewModel.articleUiState.value as ArticleUiState.Success
         val initialArticleCount = initialState.articles.size
 
         // When
@@ -386,9 +386,9 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
+        val finalState = viewModel.articleUiState.value
+        assertTrue(finalState is ArticleUiState.Success)
+        val successState = finalState as ArticleUiState.Success
 
         // Should have initial articles + page 2 articles
         val expectedCount = initialArticleCount + fakeRepository.page2Articles.size
@@ -409,7 +409,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -418,10 +418,10 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.EndReached)
+        val finalState = viewModel.articleUiState.value
+        assertTrue(finalState is ArticleUiState.Success)
+        val successState = finalState as ArticleUiState.Success
+        assertTrue(successState.pagingState is ArticleUiState.PagingState.EndReached)
         assertFalse(successState.canLoadMore)
 
         collectJob.cancel()
@@ -439,7 +439,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -448,12 +448,12 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // When - try to load more again
-        val stateBeforeSecondLoad = viewModel.newsUiState.value
+        val stateBeforeSecondLoad = viewModel.articleUiState.value
         viewModel.loadMore()
         advanceUntilIdle()
 
         // Then - state should remain unchanged (EndReached)
-        val stateAfterSecondLoad = viewModel.newsUiState.value
+        val stateAfterSecondLoad = viewModel.articleUiState.value
         assertEquals(stateBeforeSecondLoad, stateAfterSecondLoad)
 
         collectJob.cancel()
@@ -470,7 +470,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -483,11 +483,11 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.Error)
-        val pagingError = successState.pagingState as NewsUiState.PagingState.Error
+        val finalState = viewModel.articleUiState.value
+        assertTrue(finalState is ArticleUiState.Success)
+        val successState = finalState as ArticleUiState.Success
+        assertTrue(successState.pagingState is ArticleUiState.PagingState.Error)
+        val pagingError = successState.pagingState as ArticleUiState.PagingState.Error
         assertEquals(errorMessage, pagingError.message)
 
         collectJob.cancel()
@@ -506,12 +506,12 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
+        val newsState = viewModel.articleUiState.value
         assertTrue(newsState.canLoadMore)
 
         collectJob.cancel()
@@ -529,7 +529,7 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
@@ -538,7 +538,7 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
+        val finalState = viewModel.articleUiState.value
         assertFalse(finalState.canLoadMore)
 
         collectJob.cancel()
@@ -553,12 +553,12 @@ class HomeViewModelTest {
         )
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+            viewModel.articleUiState.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
+        val newsState = viewModel.articleUiState.value
         assertFalse(newsState.isLoadingMore)
 
         collectJob.cancel()

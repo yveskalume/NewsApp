@@ -28,16 +28,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.yveskalume.newsappp.R
+import dev.yveskalume.newsappp.core.getScopedViewModel
 import dev.yveskalume.newsappp.ui.components.EmptyContent
 import dev.yveskalume.newsappp.ui.components.NewsCardCompact
 import dev.yveskalume.newsappp.ui.components.NewsCardCompactShimmer
 import dev.yveskalume.newsappp.ui.components.SearchTextField
 import dev.yveskalume.newsappp.ui.preview.SearchScreenPreviewProvider
+import dev.yveskalume.newsappp.ui.screens.search.di.SearchDiContainer
 import dev.yveskalume.newsappp.ui.theme.NewsApppTheme
 import dev.yveskalume.newsappp.util.ListPagingEffect
 import dev.yveskalume.newsappp.util.paddingAndConsumeWindowInsets
 import kotlinx.serialization.Serializable
-import org.koin.androidx.compose.koinViewModel
 
 @Serializable
 data object SearchRoute : NavKey
@@ -51,19 +52,17 @@ fun NavBackStack<NavKey>.navigateToSearch() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreenRoute(
-    viewModel: SearchViewModel = koinViewModel()
+    viewModel: SearchViewModel = getScopedViewModel(SearchDiContainer)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val queryText by viewModel.queryUiState.collectAsStateWithLifecycle()
-    SearchScreen(uiState = uiState, queryText = queryText, viewModel = viewModel)
+    SearchScreen(uiState = uiState, onEvent = viewModel::onEvent)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchScreen(
-    queryText: String,
     uiState: SearchUiState,
-    viewModel: ISearchViewModel
+    onEvent: (SearchEvent) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -90,14 +89,15 @@ private fun SearchScreen(
                 .paddingAndConsumeWindowInsets(paddingValues)
         ) {
             SearchTextField(
-                queryText = queryText,
-                onQueryChange = viewModel::onQueryChange,
-                onClearSearch = viewModel::clearSearch
+                queryText = uiState.query,
+                onQueryChange = { onEvent(SearchEvent.QueryChanged(it)) },
+                onClearSearch = { onEvent(SearchEvent.ClearSearch) }
             )
 
             SearchContent(
-                uiState = uiState,
-                onLoadMore = viewModel::loadMore
+                searchResultUiState = uiState.searchResultUiState,
+                canLoadMore = uiState.canLoadMore,
+                onLoadMore = { onEvent(SearchEvent.LoadMore) }
             )
         }
     }
@@ -105,7 +105,8 @@ private fun SearchScreen(
 
 @Composable
 private fun SearchContent(
-    uiState: SearchUiState,
+    searchResultUiState: SearchResultUiState,
+    canLoadMore: Boolean,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -113,12 +114,12 @@ private fun SearchContent(
 
     ListPagingEffect(
         listState = listState,
-        canLoadMore = uiState.canLoadMore,
+        canLoadMore = canLoadMore,
         onLoadMore = onLoadMore
     )
 
-    when (uiState) {
-        is SearchUiState.Idle -> {
+    when (searchResultUiState) {
+        is SearchResultUiState.Idle -> {
             EmptyContent(
                 title = stringResource(R.string.search_for_news),
                 message = stringResource(R.string.enter_keywords_to_search),
@@ -126,7 +127,7 @@ private fun SearchContent(
             )
         }
 
-        is SearchUiState.Loading -> {
+        is SearchResultUiState.Loading -> {
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 8.dp)
@@ -141,7 +142,7 @@ private fun SearchContent(
             }
         }
 
-        is SearchUiState.Empty -> {
+        is SearchResultUiState.Empty -> {
             EmptyContent(
                 title = stringResource(R.string.no_results_found),
                 message = stringResource(R.string.try_different_keywords_or_check_your_spelling),
@@ -149,22 +150,22 @@ private fun SearchContent(
             )
         }
 
-        is SearchUiState.Error -> {
+        is SearchResultUiState.Error -> {
             EmptyContent(
                 title = stringResource(R.string.something_went_wrong),
-                message = uiState.message,
+                message = searchResultUiState.message,
                 modifier = modifier
             )
         }
 
-        is SearchUiState.Success -> {
+        is SearchResultUiState.Success -> {
             LazyColumn(
                 state = listState,
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(
-                    items = uiState.news,
+                    items = searchResultUiState.news,
                     key = { it.url }
                 ) { article ->
                     NewsCardCompact(article = article)
@@ -185,13 +186,8 @@ private fun SearchScreenPreview(
 ) {
     NewsApppTheme {
         SearchScreen(
-            queryText = "",
             uiState = uiState,
-            viewModel = object : ISearchViewModel {
-                override fun onQueryChange(query: String) {}
-                override fun clearSearch() {}
-                override fun loadMore() {}
-            }
+            onEvent = {}
         )
     }
 }

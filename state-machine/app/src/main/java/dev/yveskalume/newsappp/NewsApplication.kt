@@ -4,8 +4,8 @@ import android.app.Application
 import dev.yveskalume.newsappp.data.di.dataSourceModule
 import dev.yveskalume.newsappp.data.di.ktorModule
 import dev.yveskalume.newsappp.data.di.repositoryModule
-import dev.yveskalume.newsappp.ui.di.viewModelModule
 import dev.yveskalume.newsappp.ui.screens.home.di.HomeDiModule
+import dev.yveskalume.newsappp.ui.screens.search.di.SearchDiModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -21,8 +21,8 @@ class NewsApplication : Application() {
                 ktorModule,
                 dataSourceModule,
                 repositoryModule,
-                viewModelModule,
-                HomeDiModule
+                HomeDiModule,
+                SearchDiModule
             )
         }
     }

@@ -1,21 +1,40 @@
 package dev.yveskalume.newsappp.ui.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import dev.yveskalume.newsappp.ui.screens.search.SearchResultUiState
 import dev.yveskalume.newsappp.ui.screens.search.SearchUiState
 
 class SearchScreenPreviewProvider : PreviewParameterProvider<SearchUiState> {
 
     override val values: Sequence<SearchUiState> = sequenceOf(
-        SearchUiState.Idle,
-        SearchUiState.Loading,
-        SearchUiState.Success(
-            news = PreviewSampleData.sampleArticles
+        SearchUiState(
+            query = "",
+            searchResultUiState = SearchResultUiState.Idle
         ),
-        SearchUiState.Success(
-            news = PreviewSampleData.sampleArticles,
-            pagingState = SearchUiState.PagingState.Loading
+        SearchUiState(
+            query = "kotlin",
+            searchResultUiState = SearchResultUiState.Loading
         ),
-        SearchUiState.Empty,
-        SearchUiState.Error(message = "Search failed. Please retry.")
+        SearchUiState(
+            query = "kotlin",
+            searchResultUiState = SearchResultUiState.Success(
+                news = PreviewSampleData.sampleArticles
+            )
+        ),
+        SearchUiState(
+            query = "kotlin",
+            searchResultUiState = SearchResultUiState.Success(
+                news = PreviewSampleData.sampleArticles,
+                pagingState = SearchResultUiState.PagingState.Loading
+            )
+        ),
+        SearchUiState(
+            query = "missing",
+            searchResultUiState = SearchResultUiState.Empty
+        ),
+        SearchUiState(
+            query = "kotlin",
+            searchResultUiState = SearchResultUiState.Error(message = "Search failed. Please retry.")
+        )
     )
 }

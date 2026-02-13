@@ -1,51 +1,55 @@
 package dev.yveskalume.newsappp.ui.screens.search
 
 import androidx.compose.runtime.Stable
+import dev.yveskalume.newsappp.core.State
 import dev.yveskalume.newsappp.domain.model.Article
 
 @Stable
-sealed interface SearchUiState {
-    data object Idle : SearchUiState
+data class SearchUiState(
+    val query: String,
+    val searchResultUiState: SearchResultUiState
+) : State {
+    companion object {
+        fun initial() = SearchUiState(
+            query = "",
+            searchResultUiState = SearchResultUiState.Idle
+        )
+    }
 
-    data object Loading : SearchUiState
 
+    val isLoadingMore: Boolean
+        get() = (searchResultUiState as? SearchResultUiState.Success)?.pagingState is SearchResultUiState.PagingState.Loading
+
+    val canLoadMore: Boolean
+        get() {
+            val paging = (searchResultUiState as? SearchResultUiState.Success)?.pagingState ?: return false
+            return paging !is SearchResultUiState.PagingState.EndReached &&
+                    paging !is SearchResultUiState.PagingState.Loading
+        }
+}
+
+@Stable
+sealed interface SearchResultUiState {
+    data object Idle : SearchResultUiState
+
+    data object Loading : SearchResultUiState
 
     data class Success(
         val news: List<Article>,
         val pagingState: PagingState = PagingState.Idle(currentPage = 1)
-    ) : SearchUiState
+    ) : SearchResultUiState
 
     /** Search completed successfully, but no articles matched. */
-    data object Empty : SearchUiState
+    data object Empty : SearchResultUiState
 
     data class Error(
         val message: String
-    ) : SearchUiState
+    ) : SearchResultUiState
 
     sealed interface PagingState {
-        data class Idle(val currentPage: Int, val news: List<Article> = emptyList()) : PagingState
+        data class Idle(val currentPage: Int) : PagingState
         data object Loading : PagingState
         data class Error(val message: String) : PagingState
         data object EndReached : PagingState
-
-        val newsOrEmpty: List<Article>
-            get() {
-                return when (this) {
-                    is Idle -> this.news
-                    else -> emptyList()
-                }
-            }
     }
-
-    val isLoading: Boolean
-        get() = this is Loading
-
-    val isLoadingMore: Boolean
-        get() = (this as? Success)?.pagingState is PagingState.Loading
-
-    val canLoadMore: Boolean
-        get() {
-            val paging = (this as? Success)?.pagingState ?: return false
-            return paging !is PagingState.EndReached && paging !is PagingState.Loading
-        }
 }

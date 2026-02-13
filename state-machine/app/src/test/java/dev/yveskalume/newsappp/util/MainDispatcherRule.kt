@@ -1,0 +1,28 @@
+package dev.yveskalume.newsappp.util
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
+
+/**
+ * A JUnit Rule that sets the Main dispatcher to a test dispatcher for unit testing.
+ * This is required because ViewModels use viewModelScope which uses Dispatchers.Main.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainDispatcherRule(
+    val testDispatcher: TestDispatcher = StandardTestDispatcher()
+) : TestWatcher() {
+
+    override fun starting(description: Description) {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    override fun finished(description: Description) {
+        Dispatchers.resetMain()
+    }
+}

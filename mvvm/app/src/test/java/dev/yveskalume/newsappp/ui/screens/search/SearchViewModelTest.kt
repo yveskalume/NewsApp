@@ -1,18 +1,21 @@
 package dev.yveskalume.newsappp.ui.screens.search
 
+import dev.yveskalume.newsappp.data.repository.ArticleRepository
+import dev.yveskalume.newsappp.domain.model.Article
 import dev.yveskalume.newsappp.fake.FakeArticleRepositoryConfigurable
 import dev.yveskalume.newsappp.fake.FakeArticleRepositoryFailure
 import dev.yveskalume.newsappp.fake.FakeArticleRepositorySuccess
 import dev.yveskalume.newsappp.util.MainDispatcherRule
+import dev.yveskalume.newsappp.util.paging.DataState
+import dev.yveskalume.newsappp.util.paging.PageNumber
+import dev.yveskalume.newsappp.util.paging.PageState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -23,342 +26,163 @@ class SearchViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    // region Initial State Tests
-
     @Test
-    fun `initial uiState should be Idle`() = runTest {
-        // Given
+    fun `initial query should be empty and pager snapshot should be default loading`() = runTest {
         val viewModel = SearchViewModel(
             articleRepository = FakeArticleRepositorySuccess()
         )
 
-        // Then
-        assertEquals(SearchUiState.Idle, viewModel.uiState.value)
-    }
-
-    @Test
-    fun `initial queryUiState should be empty string`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        // Then
         assertEquals("", viewModel.queryUiState.value)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertEquals(DataState.Loading, snapshot.dataState)
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertNull(snapshot.currentPage)
     }
 
-    // endregion
-
-    // region Query Change Tests
-
     @Test
-    fun `onQueryChange should update queryUiState`() = runTest {
-        // Given
+    fun `collecting pager with blank query should produce empty success and EndReached`() = runTest {
         val viewModel = SearchViewModel(
             articleRepository = FakeArticleRepositorySuccess()
         )
 
-        // When
-        val testQuery = "technology"
-        viewModel.onQueryChange(testQuery)
-        advanceUntilIdle()
-
-        // Then
-        assertEquals(testQuery, viewModel.queryUiState.value)
-    }
-
-    @Test
-    fun `onQueryChange with blank query should keep uiState as Idle`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // When
-        viewModel.onQueryChange("   ")
-        advanceTimeBy(600) // Pass debounce time
         advanceUntilIdle()
 
-        // Then
-        assertEquals(SearchUiState.Idle, viewModel.uiState.value)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertTrue(snapshot.dataState is DataState.Success)
+        val success = snapshot.dataState as DataState.Success
+        assertTrue(success.items.isEmpty())
+        assertEquals(PageState.EndReached, snapshot.pageState)
+        assertEquals(PageNumber(1), snapshot.currentPage)
 
         collectJob.cancel()
     }
 
     @Test
-    fun `onQueryChange should trigger search after debounce`() = runTest {
-        // Given
+    fun `onQueryChange should update query and load articles`() = runTest {
         val viewModel = SearchViewModel(
             articleRepository = FakeArticleRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // When
-        viewModel.onQueryChange("test query")
-        advanceTimeBy(600) // Pass debounce time (500ms)
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state is SearchUiState.Success || state is SearchUiState.Empty)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `rapid query changes should only use final query after debounce`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // When - rapid typing
-        viewModel.onQueryChange("t")
-        advanceTimeBy(100)
-        viewModel.onQueryChange("te")
-        advanceTimeBy(100)
-        viewModel.onQueryChange("tes")
-        advanceTimeBy(100)
-        viewModel.onQueryChange("test")
-
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then - final query should be "test"
-        assertEquals("test", viewModel.queryUiState.value)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region Search Success Tests
-
-    @Test
-    fun `uiState should emit Success with articles when search succeeds`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // When
         viewModel.onQueryChange("kotlin")
-        advanceTimeBy(600)
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state is SearchUiState.Success)
-        val successState = state as SearchUiState.Success
-        assertEquals(FakeArticleRepositorySuccess.sampleArticles, successState.news)
+        assertEquals("kotlin", viewModel.queryUiState.value)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertEquals(PageNumber(1), snapshot.currentPage)
+        assertTrue(snapshot.dataState is DataState.Success)
+        val success = snapshot.dataState as DataState.Success
+        assertEquals(FakeArticleRepositorySuccess.sampleArticles, success.items)
 
         collectJob.cancel()
     }
 
     @Test
-    fun `uiState Success should have correct initial paging state`() = runTest {
-        // Given
+    fun `onQueryChange should pass trimmed query to repository`() = runTest {
+        val repository = RecordingArticleRepository()
+        val viewModel = SearchViewModel(
+            articleRepository = repository
+        )
+
+        viewModel.onQueryChange("   kotlin compose   ")
+        advanceUntilIdle()
+
+        assertEquals("   kotlin compose   ", viewModel.queryUiState.value)
+        assertEquals("kotlin compose", repository.requestedQueries.last())
+    }
+
+    @Test
+    fun `search failure after blank baseline should keep empty success state`() = runTest {
+        val viewModel = SearchViewModel(
+            articleRepository = FakeArticleRepositoryFailure("Search failed")
+        )
+
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
+        }
+        advanceUntilIdle()
+
+        viewModel.onQueryChange("android")
+        advanceUntilIdle()
+
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertTrue(snapshot.dataState is DataState.Success)
+        val success = snapshot.dataState as DataState.Success
+        assertTrue(success.items.isEmpty())
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertEquals(PageNumber(1), snapshot.currentPage)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `clearSearch should reset query and show empty success`() = runTest {
         val viewModel = SearchViewModel(
             articleRepository = FakeArticleRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // When
-        viewModel.onQueryChange("news")
-        advanceTimeBy(600)
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state is SearchUiState.Success)
-        val successState = state as SearchUiState.Success
-        assertTrue(successState.pagingState is SearchUiState.PagingState.Idle)
-        val pagingIdle = successState.pagingState as SearchUiState.PagingState.Idle
-        assertEquals(1, pagingIdle.currentPage)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region Search Empty Tests
-
-    @Test
-    fun `uiState should emit Empty when search returns no results`() = runTest {
-        // Given
-        val fakeRepository = FakeArticleRepositoryConfigurable().apply {
-            articles = emptyList()
-        }
-        val viewModel = SearchViewModel(
-            articleRepository = fakeRepository
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // When
-        viewModel.onQueryChange("nonexistent query xyz123")
-        advanceTimeBy(600)
+        viewModel.onQueryChange("kotlin")
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertEquals(SearchUiState.Empty, state)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region Search Failure Tests
-
-    @Test
-    fun `uiState should emit Error when search fails`() = runTest {
-        // Given
-        val errorMessage = "Search failed: network error"
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositoryFailure(errorMessage)
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // When
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state is SearchUiState.Error)
-        val errorState = state as SearchUiState.Error
-        assertEquals(errorMessage, errorState.message)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region Clear Search Tests
-
-    @Test
-    fun `clearSearch should reset queryUiState to empty`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // First set a query
-        viewModel.onQueryChange("test query")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // When
         viewModel.clearSearch()
         advanceUntilIdle()
 
-        // Then
         assertEquals("", viewModel.queryUiState.value)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertTrue(snapshot.dataState is DataState.Success)
+        val success = snapshot.dataState as DataState.Success
+        assertTrue(success.items.isEmpty())
+        assertEquals(PageState.EndReached, snapshot.pageState)
 
         collectJob.cancel()
     }
-
-    @Test
-    fun `clearSearch should reset uiState to Idle`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // First perform a search
-        viewModel.onQueryChange("test query")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Verify we got results
-        assertTrue(viewModel.uiState.value is SearchUiState.Success)
-
-        // When
-        viewModel.clearSearch()
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then
-        assertEquals(SearchUiState.Idle, viewModel.uiState.value)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region Load More (Pagination) Tests
 
     @Test
     fun `loadMore should append articles when successful`() = runTest {
-        // Given
         val fakeRepository = FakeArticleRepositoryConfigurable()
         val viewModel = SearchViewModel(
             articleRepository = fakeRepository
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // Perform initial search
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
         advanceUntilIdle()
 
-        val initialState = viewModel.uiState.value as SearchUiState.Success
-        val initialArticleCount = initialState.news.size
+        viewModel.onQueryChange("test")
+        advanceUntilIdle()
+        val initialSnapshot = viewModel.articlePager.snapshot.value
+        val initialItems = (initialSnapshot.dataState as DataState.Success).items
 
-        // When
         viewModel.loadMore()
         advanceUntilIdle()
 
-        // Then
-        val finalState = viewModel.uiState.value
-        assertTrue(finalState is SearchUiState.Success)
-        val successState = finalState as SearchUiState.Success
-
-        val expectedCount = initialArticleCount + fakeRepository.page2Articles.size
-        assertEquals(expectedCount, successState.news.size)
+        val finalSnapshot = viewModel.articlePager.snapshot.value
+        assertTrue(finalSnapshot.dataState is DataState.Success)
+        val success = finalSnapshot.dataState as DataState.Success
+        val expectedCount = initialItems.size + fakeRepository.page2Articles.size
+        assertEquals(expectedCount, success.items.size)
+        assertEquals(PageNumber(2), finalSnapshot.currentPage)
+        assertEquals(PageState.Idle, finalSnapshot.pageState)
 
         collectJob.cancel()
     }
 
     @Test
-    fun `loadMore should set paging state to EndReached when no more articles`() = runTest {
-        // Given
+    fun `loadMore should set EndReached when next page is empty`() = runTest {
         val fakeRepository = FakeArticleRepositoryConfigurable().apply {
             page2Articles = emptyList()
         }
@@ -366,243 +190,95 @@ class SearchViewModelTest {
             articleRepository = fakeRepository
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // Perform initial search
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
         advanceUntilIdle()
 
-        // When
+        viewModel.onQueryChange("test")
+        advanceUntilIdle()
+
         viewModel.loadMore()
         advanceUntilIdle()
 
-        // Then
-        val finalState = viewModel.uiState.value
-        assertTrue(finalState is SearchUiState.Success)
-        val successState = finalState as SearchUiState.Success
-        assertTrue(successState.pagingState is SearchUiState.PagingState.EndReached)
-        assertFalse(successState.canLoadMore)
+        val finalSnapshot = viewModel.articlePager.snapshot.value
+        assertEquals(PageState.EndReached, finalSnapshot.pageState)
+        assertEquals(PageNumber(1), finalSnapshot.currentPage)
 
         collectJob.cancel()
     }
 
     @Test
-    fun `loadMore should not fetch when paging state is not Idle`() = runTest {
-        // Given
-        val fakeRepository = FakeArticleRepositoryConfigurable().apply {
-            page2Articles = emptyList()
-        }
-        val viewModel = SearchViewModel(
-            articleRepository = fakeRepository
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // Perform initial search and load more to reach EndReached
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        // When - try to load more again
-        val stateBeforeSecondLoad = viewModel.uiState.value
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        // Then - state should remain unchanged
-        val stateAfterSecondLoad = viewModel.uiState.value
-        assertEquals(stateBeforeSecondLoad, stateAfterSecondLoad)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `loadMore should set paging state to Error when fetch fails`() = runTest {
-        // Given
-        val errorMessage = "Failed to load more results"
+    fun `loadMore failure should keep previous data and return Idle page state`() = runTest {
         val fakeRepository = FakeArticleRepositoryConfigurable()
         val viewModel = SearchViewModel(
             articleRepository = fakeRepository
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
-
-        // Perform initial search
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
         advanceUntilIdle()
 
-        // Configure repository to fail
+        viewModel.onQueryChange("test")
+        advanceUntilIdle()
+
+        val before = viewModel.articlePager.snapshot.value
+        val beforeItems = (before.dataState as DataState.Success).items
+
         fakeRepository.shouldFail = true
-        fakeRepository.errorMessage = errorMessage
-
-        // When
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        // Then
-        val finalState = viewModel.uiState.value
-        assertTrue(finalState is SearchUiState.Success)
-        val successState = finalState as SearchUiState.Success
-        assertTrue(successState.pagingState is SearchUiState.PagingState.Error)
-        val pagingError = successState.pagingState as SearchUiState.PagingState.Error
-        assertEquals(errorMessage, pagingError.message)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `loadMore should do nothing when uiState is not Success`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // Don't perform any search - state is Idle
-
-        // When
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        // Then - should remain Idle
-        assertEquals(SearchUiState.Idle, viewModel.uiState.value)
-
-        collectJob.cancel()
-    }
-
-    // endregion
-
-    // region UI State Properties Tests
-
-    @Test
-    fun `isLoading should be true when state is Loading`() = runTest {
-        // Then
-        assertTrue(SearchUiState.Loading.isLoading)
-        assertFalse(SearchUiState.Idle.isLoading)
-        assertFalse(SearchUiState.Empty.isLoading)
-    }
-
-    @Test
-    fun `canLoadMore should be true when paging state is Idle`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect {}
-        }
-
-        // Perform search
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state.canLoadMore)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `canLoadMore should be false when state is not Success`() = runTest {
-        // Then
-        assertFalse(SearchUiState.Idle.canLoadMore)
-        assertFalse(SearchUiState.Loading.canLoadMore)
-        assertFalse(SearchUiState.Empty.canLoadMore)
-        assertFalse(SearchUiState.Error("error").canLoadMore)
-    }
-
-    @Test
-    fun `isLoadingMore should be false when paging state is Idle`() = runTest {
-        // Given
-        val viewModel = SearchViewModel(
-            articleRepository = FakeArticleRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // Perform search
-        viewModel.onQueryChange("test")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then
-        val state = viewModel.uiState.value
-        assertFalse(state.isLoadingMore)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `isLoadingMore should be false when state is not Success`() = runTest {
-        // Then
-        assertFalse(SearchUiState.Idle.isLoadingMore)
-        assertFalse(SearchUiState.Loading.isLoadingMore)
-        assertFalse(SearchUiState.Empty.isLoadingMore)
-        assertFalse(SearchUiState.Error("error").isLoadingMore)
-    }
-
-    // endregion
-
-    // region New Search Resets Paging Tests
-
-    @Test
-    fun `new search should reset paging state`() = runTest {
-        // Given
-        val fakeRepository = FakeArticleRepositoryConfigurable()
-        val viewModel = SearchViewModel(
-            articleRepository = fakeRepository
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.uiState.collect()
-        }
-
-        // Perform initial search and load more pages
-        viewModel.onQueryChange("first query")
-        advanceTimeBy(600)
-        advanceUntilIdle()
+        fakeRepository.errorMessage = "Failed to load more results"
 
         viewModel.loadMore()
         advanceUntilIdle()
 
-        // Verify we're on page 2
-        val stateAfterLoadMore = viewModel.uiState.value as SearchUiState.Success
-        val pagingState = stateAfterLoadMore.pagingState as SearchUiState.PagingState.Idle
-        assertEquals(2, pagingState.currentPage)
-
-        // When - perform new search
-        viewModel.onQueryChange("second query")
-        advanceTimeBy(600)
-        advanceUntilIdle()
-
-        // Then - paging should reset to page 1
-        val newState = viewModel.uiState.value
-        assertTrue(newState is SearchUiState.Success)
-        val newSuccessState = newState as SearchUiState.Success
-        assertTrue(newSuccessState.pagingState is SearchUiState.PagingState.Idle)
-        val newPagingState = newSuccessState.pagingState as SearchUiState.PagingState.Idle
-        assertEquals(1, newPagingState.currentPage)
+        val after = viewModel.articlePager.snapshot.value
+        assertEquals(PageState.Idle, after.pageState)
+        assertTrue(after.dataState is DataState.Success)
+        val afterItems = (after.dataState as DataState.Success).items
+        assertEquals(beforeItems, afterItems)
+        assertEquals(before.currentPage, after.currentPage)
 
         collectJob.cancel()
     }
 
-    // endregion
+    @Test
+    fun `loadMore should do nothing when query is blank`() = runTest {
+        val viewModel = SearchViewModel(
+            articleRepository = FakeArticleRepositorySuccess()
+        )
+
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
+        }
+        advanceUntilIdle()
+
+        val before = viewModel.articlePager.snapshot.value
+        viewModel.loadMore()
+        advanceUntilIdle()
+        val after = viewModel.articlePager.snapshot.value
+
+        assertEquals(before, after)
+
+        collectJob.cancel()
+    }
+}
+
+private class RecordingArticleRepository : ArticleRepository {
+    val requestedQueries = mutableListOf<String?>()
+
+    override suspend fun getTopHeadlines(
+        query: String?,
+        sources: String?,
+        pageSize: Int,
+        page: Int
+    ): Result<List<Article>> {
+        requestedQueries += query
+        val items = when (page) {
+            1 -> FakeArticleRepositorySuccess.sampleArticles
+            2 -> FakeArticleRepositorySuccess.page2Articles
+            else -> emptyList()
+        }
+        return Result.success(items)
+    }
 }

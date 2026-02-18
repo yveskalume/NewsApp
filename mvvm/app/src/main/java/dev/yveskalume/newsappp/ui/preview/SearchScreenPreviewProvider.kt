@@ -1,21 +1,61 @@
 package dev.yveskalume.newsappp.ui.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import dev.yveskalume.newsappp.ui.screens.search.SearchUiState
+import dev.yveskalume.newsappp.domain.model.Article
+import dev.yveskalume.newsappp.util.paging.DataState
+import dev.yveskalume.newsappp.util.paging.PageNumber
+import dev.yveskalume.newsappp.util.paging.PageSnapshot
+import dev.yveskalume.newsappp.util.paging.PageState
 
-class SearchScreenPreviewProvider : PreviewParameterProvider<SearchUiState> {
+data class SearchScreenPreviewData(
+    val queryText: String,
+    val articlePageSnapshot: PageSnapshot<Article>
+)
 
-    override val values: Sequence<SearchUiState> = sequenceOf(
-        SearchUiState.Idle,
-        SearchUiState.Loading,
-        SearchUiState.Success(
-            news = PreviewSampleData.sampleArticles
+class SearchScreenPreviewProvider : PreviewParameterProvider<SearchScreenPreviewData> {
+
+    override val values: Sequence<SearchScreenPreviewData> = sequenceOf(
+        SearchScreenPreviewData(
+            queryText = "",
+            articlePageSnapshot = PageSnapshot(
+                dataState = DataState.Success(emptyList())
+            )
         ),
-        SearchUiState.Success(
-            news = PreviewSampleData.sampleArticles,
-            pagingState = SearchUiState.PagingState.Loading
+        SearchScreenPreviewData(
+            queryText = "kotlin",
+            articlePageSnapshot = PageSnapshot(
+                dataState = DataState.Loading
+            )
         ),
-        SearchUiState.Empty,
-        SearchUiState.Error(message = "Search failed. Please retry.")
+        SearchScreenPreviewData(
+            queryText = "kotlin",
+            articlePageSnapshot = PageSnapshot(
+                currentPage = PageNumber(1),
+                pageState = PageState.Idle,
+                dataState = DataState.Success(PreviewSampleData.sampleArticles)
+            )
+        ),
+        SearchScreenPreviewData(
+            queryText = "kotlin",
+            articlePageSnapshot = PageSnapshot(
+                currentPage = PageNumber(1),
+                pageState = PageState.Loading,
+                dataState = DataState.Success(PreviewSampleData.sampleArticles)
+            )
+        ),
+        SearchScreenPreviewData(
+            queryText = "missing",
+            articlePageSnapshot = PageSnapshot(
+                currentPage = PageNumber(1),
+                pageState = PageState.EndReached,
+                dataState = DataState.Success(emptyList())
+            )
+        ),
+        SearchScreenPreviewData(
+            queryText = "kotlin",
+            articlePageSnapshot = PageSnapshot(
+                dataState = DataState.Error("Search failed. Please retry.")
+            )
+        )
     )
 }

@@ -19,6 +19,7 @@ function usage() {
     echo
     echo "PROJECTS"
     echo "  mvvm                 Open the MVVM architecture project"
+    echo "  state-machine        Open the event-driven state-machine project"
     echo "  all                  Open the entire workspace"
     echo
     echo "Or specify a project path directly:"
@@ -199,6 +200,9 @@ skip_gradle_check=false
 case "$project" in
     mvvm|m)
         project_path="$SCRIPT_DIR/mvvm"
+        ;;
+    state-machine|sm)
+        project_path="$SCRIPT_DIR/state-machine"
         ;;
     all|a)
         project_path="$SCRIPT_DIR"

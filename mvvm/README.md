@@ -1,89 +1,45 @@
-# MVVM Implementation
+# MVVM Implementation Notes (This Project)
 
-## Overview
+This folder contains the MVVM version of the app, with a few specific design decisions to keep behavior clear, testable, and preview-friendly.
 
-This is a classic MVVM (Model-View-ViewModel) implementation of the News app, following modern Android development best practices.
+## 1) ViewModel as interface in UI contracts
 
-## Key Patterns
+Screens consume `IHomeViewModel` / `ISearchViewModel` instead of concrete ViewModel classes.
 
-### Initial Data Fetching
+Why:
+- Keeps Composables decoupled from framework-heavy objects.
+- Makes previews easy (we pass a small fake object in `@Preview`).
+- Reduces test setup for UI-level tests.
+- Limits the screen API to only user intents (`refresh`, `loadMore`, `selectSource`, etc.).
 
-Data fetching is triggered lazily using `onStart` on the `StateFlow` chain, not in an `init` block. This means the first request happens when the UI starts collecting the flow:
+## 2) No network request in `init` and no fetch in `LaunchedEffect`
 
-```kotlin
-val sourcesUiState: StateFlow<SourcesUiState> = combine(
-    refreshTrigger.onStart { emit(Unit) },
-    sourcesStateFlow,
-    selectedSourceFlow
-) { ... }
-.onStart {
-    sourcesStateFlow.update { sourcesRepository.getSources().getOrThrow() }
-}
-.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.WhileSubscribed(5000),
-    initialValue = SourcesUiState.Loading
-)
-```
+Requests start when the screen begins observing state, not earlier.
 
-This approach:
-- Avoids work in constructors/init blocks
-- Makes testing easier and more predictable
-- Delays network requests until the UI actually subscribes
+How:
+- `sourcesUiState` uses `.onStart { ... }` before `stateIn(...)` in `HomeViewModel`.
+- The custom `Pager` also triggers its first load from `snapshot.onStart { request(...) }`.
+- Collection begins from screen observation (`collectAsStateWithLifecycle()`), so work starts only when UI is active.
 
-### State as Sealed Interface
+Benefits:
+- Avoids eager work in constructors (easier to test)
+- Keeps startup behavior lifecycle-aware.
+- Makes data flow timing easier to reason about.
 
-UI states are represented using `sealed interface` :
+## 3) Custom paging abstraction (`Pager`)
 
-```kotlin
-sealed interface NewsUiState {
-    data object Loading : NewsUiState
-    data class Success(val articles: List<Article>, ...) : NewsUiState
-    data class Error(val message: String) : NewsUiState
-}
-```
+The project uses a custom pager (`util/paging/Pager.kt`) instead of Paging3.
 
 
-### ViewModel Interface for Previews
+## 4) Restartable `StateFlow` for manual re-collection
 
-To avoid breaking Compose previews, ViewModels implement an interface (`IHomeViewModel`, `ISearchViewModel`) that defines the actions:
+`RestartableStateFlow` is a project-specific utility that extends `StateFlow` with `restart()`.
 
-```kotlin
-interface IHomeViewModel {
-    fun selectSource(source: SourceItem?)
-    fun refresh()
-    fun loadMore()
-}
+## 5) Practical tradeoffs
 
-class HomeViewModel(...) : ViewModel(), IHomeViewModel { ... }
-```
+Pros in this implementation:
+- Clear lifecycle-driven fetch timing.
+- Lightweight screen contracts via interfaces.
 
-The screen composable receives the interface, not the concrete ViewModel:
-
-```kotlin
-@Composable
-private fun HomeScreen(
-    newsUiState: NewsUiState,
-    viewModel: IHomeViewModel,  // Interface, not HomeViewModel
-    ...
-)
-```
-
-In previews, we create an anonymous implementation:
-
-```kotlin
-@Preview
-@Composable
-private fun HomeScreenPreview(...) {
-    HomeScreen(
-        viewModel = object : IHomeViewModel {
-            override fun selectSource(source: SourceItem?) {}
-            override fun refresh() {}
-            override fun loadMore() {}
-        },
-        ...
-    )
-}
-```
-
-This keeps previews working without needing to instantiate real ViewModels with their dependencies.
+Cons in this implementation:
+- More custom infrastructure to maintain (`Pager`, `RestartableStateFlow`, helpers).

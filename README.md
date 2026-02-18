@@ -13,9 +13,10 @@ Read the code at your own risk. You can still learn from these samples and steal
 This repository demonstrates different architectural approaches to building the same News application:
 
 #### MVVM Implementation
-A classic MVVM (Model-View-ViewModel) approach with "modern Android best practices". See [mvvm/README.md](mvvm/README.md) for details.
+A classic MVVM (Model-View-ViewModel) approach with project-specific patterns like interface-based screen contracts, custom paging, and restartable state flow. See [mvvm/README.md](mvvm/README.md) for details.
 
-*More architectural patterns coming soon...*
+#### State-Machine Implementation (Event-Driven and ViewModel without the big when statement)
+An event-driven architecture where UI dispatches events and reducers handle state transitions. See [state-machine/README.md](state-machine/README.md) for details.
 
 ## Learning Goals
 
@@ -63,11 +64,17 @@ Use the `studiow` script to quickly open subprojects in Android Studio:
 # Open the MVVM project
 ./studiow mvvm
 
+# Open the state-machine (event-driven) project
+./studiow state-machine
+
 # Open the entire workspace
 ./studiow all
 
 # Clean build caches before opening
 ./studiow --clean mvvm
+
+# Clean build caches before opening state-machine
+./studiow --clean state-machine
 
 # List all available projects
 ./studiow --list

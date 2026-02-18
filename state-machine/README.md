@@ -1,4 +1,4 @@
-# Why Use State Machine Instead of Classic MVVM
+# Event Driven (State Machine) Architecture
 
 This module uses an event + reducer state machine approach with deterministic state transitions.
 

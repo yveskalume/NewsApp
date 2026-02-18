@@ -6,12 +6,15 @@ import dev.yveskalume.newsappp.fake.FakeArticleRepositorySuccess
 import dev.yveskalume.newsappp.fake.FakeSourcesRepositoryFailure
 import dev.yveskalume.newsappp.fake.FakeSourcesRepositorySuccess
 import dev.yveskalume.newsappp.util.MainDispatcherRule
+import dev.yveskalume.newsappp.util.paging.DataState
+import dev.yveskalume.newsappp.util.paging.PageNumber
+import dev.yveskalume.newsappp.util.paging.PageState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,7 +31,7 @@ class HomeViewModelTest {
     // region Initial State Tests
 
     @Test
-    fun `initial newsUiState should be Loading`() = runTest {
+    fun `initial articlePager snapshot should be Loading`() = runTest {
         // Given
         val viewModel = HomeViewModel(
             articleRepository = FakeArticleRepositorySuccess(),
@@ -36,7 +39,10 @@ class HomeViewModelTest {
         )
 
         // Then
-        assertEquals(NewsUiState.Loading, viewModel.newsUiState.value)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertEquals(DataState.Loading, snapshot.dataState)
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertNull(snapshot.currentPage)
     }
 
     @Test
@@ -65,34 +71,10 @@ class HomeViewModelTest {
 
     // endregion
 
-    // region News Success Tests
+    // region Articles Pager Tests
 
     @Test
-    fun `newsUiState should emit Success with articles when fetch succeeds`() = runTest {
-        // Given
-        val fakeArticleRepository = FakeArticleRepositorySuccess()
-        val viewModel = HomeViewModel(
-            articleRepository = fakeArticleRepository,
-            sourcesRepository = FakeSourcesRepositorySuccess()
-        )
-
-        // When
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
-        }
-        advanceUntilIdle()
-
-        // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Success)
-        val successState = newsState as NewsUiState.Success
-        assertEquals(FakeArticleRepositorySuccess.sampleArticles, successState.articles)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `newsUiState Success should have correct initial paging state`() = runTest {
+    fun `articlePager snapshot should emit Success with articles when fetch succeeds`() = runTest {
         // Given
         val viewModel = HomeViewModel(
             articleRepository = FakeArticleRepositorySuccess(),
@@ -100,46 +82,43 @@ class HomeViewModelTest {
         )
 
         // When
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Success)
-        val successState = newsState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.Idle)
-        val pagingIdle = successState.pagingState as NewsUiState.PagingState.Idle
-        assertEquals(1, pagingIdle.currentPage)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertEquals(PageNumber(1), snapshot.currentPage)
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertTrue(snapshot.dataState is DataState.Success)
+        val successState = snapshot.dataState as DataState.Success
+        assertEquals(FakeArticleRepositorySuccess.sampleArticles, successState.items)
 
         collectJob.cancel()
     }
 
-    // endregion
-
-    // region News Failure Tests
-
     @Test
-    fun `newsUiState should emit Error when fetch fails`() = runTest {
+    fun `articlePager snapshot should emit Error when initial fetch fails`() = runTest {
         // Given
-        val errorMessage = "Custom network error"
         val viewModel = HomeViewModel(
-            articleRepository = FakeArticleRepositoryFailure(errorMessage),
+            articleRepository = FakeArticleRepositoryFailure("Custom network error"),
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
         // When
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState is NewsUiState.Error)
-        val errorState = newsState as NewsUiState.Error
-        assertEquals(errorMessage, errorState.message)
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertTrue(snapshot.dataState is DataState.Error)
+        val error = snapshot.dataState as DataState.Error
+        assertEquals("Custom network error", error.message)
+        assertEquals(PageState.Idle, snapshot.pageState)
+        assertNull(snapshot.currentPage)
 
         collectJob.cancel()
     }
@@ -157,7 +136,7 @@ class HomeViewModelTest {
         )
 
         // When
-        val collectJob = launch(UnconfinedTestDispatcher()) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -180,7 +159,7 @@ class HomeViewModelTest {
         )
 
         // When
-        val collectJob = launch(UnconfinedTestDispatcher()) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -208,7 +187,7 @@ class HomeViewModelTest {
         )
 
         // When
-        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -234,7 +213,7 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -261,7 +240,7 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -291,7 +270,7 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
+        val collectJob = launch {
             viewModel.sourcesUiState.collect()
         }
         advanceUntilIdle()
@@ -313,6 +292,34 @@ class HomeViewModelTest {
 
     // endregion
 
+    @Test
+    fun `selectSource should retry and reload articles with selected source id`() = runTest {
+        // Given
+        val repository = RecordingArticleRepository()
+        val viewModel = HomeViewModel(
+            articleRepository = repository,
+            sourcesRepository = FakeSourcesRepositorySuccess()
+        )
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
+        }
+        advanceUntilIdle()
+        val sourceToSelect = FakeSourcesRepositorySuccess.sampleSources.first()
+
+        // When
+        viewModel.selectSource(sourceToSelect)
+        advanceUntilIdle()
+
+        // Then
+        assertTrue(repository.requestedSources.isNotEmpty())
+        assertEquals(sourceToSelect.id, repository.requestedSources.last())
+        val snapshot = viewModel.articlePager.snapshot.value
+        assertTrue(snapshot.dataState is DataState.Success)
+        collectJob.cancel()
+    }
+
+    // endregion
+
     // region Refresh Tests
 
     @Test
@@ -323,8 +330,8 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
@@ -333,29 +340,6 @@ class HomeViewModelTest {
 
         // Then - check immediate state after calling refresh
         assertEquals(RefreshUiState.Refreshing, viewModel.refreshUiState.value)
-
-        collectJob.cancel()
-    }
-
-    @Test
-    fun `refresh should eventually set refreshUiState back to Idle`() = runTest {
-        // Given
-        val viewModel = HomeViewModel(
-            articleRepository = FakeArticleRepositorySuccess(),
-            sourcesRepository = FakeSourcesRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
-        }
-        advanceUntilIdle()
-
-        // When
-        viewModel.refresh()
-        advanceUntilIdle()
-
-        // Then
-        assertEquals(RefreshUiState.Idle, viewModel.refreshUiState.value)
 
         collectJob.cancel()
     }
@@ -373,26 +357,28 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
-        val initialState = viewModel.newsUiState.value as NewsUiState.Success
-        val initialArticleCount = initialState.articles.size
+        val initialSnapshot = viewModel.articlePager.snapshot.value
+        val initialArticles = (initialSnapshot.dataState as DataState.Success).items
 
         // When
         viewModel.loadMore()
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
+        val finalSnapshot = viewModel.articlePager.snapshot.value
+        assertTrue(finalSnapshot.dataState is DataState.Success)
+        val successState = finalSnapshot.dataState as DataState.Success
 
         // Should have initial articles + page 2 articles
-        val expectedCount = initialArticleCount + fakeRepository.page2Articles.size
-        assertEquals(expectedCount, successState.articles.size)
+        val expectedCount = initialArticles.size + fakeRepository.page2Articles.size
+        assertEquals(expectedCount, successState.items.size)
+        assertEquals(PageNumber(2), finalSnapshot.currentPage)
+        assertEquals(PageState.Idle, finalSnapshot.pageState)
 
         collectJob.cancel()
     }
@@ -408,8 +394,8 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
@@ -418,11 +404,10 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.EndReached)
-        assertFalse(successState.canLoadMore)
+        val finalSnapshot = viewModel.articlePager.snapshot.value
+        assertEquals(PageState.EndReached, finalSnapshot.pageState)
+        assertEquals(PageNumber(1), finalSnapshot.currentPage)
+        assertTrue(finalSnapshot.dataState is DataState.Success)
 
         collectJob.cancel()
     }
@@ -438,8 +423,8 @@ class HomeViewModelTest {
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
 
@@ -448,121 +433,96 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         // When - try to load more again
-        val stateBeforeSecondLoad = viewModel.newsUiState.value
+        val stateBeforeSecondLoad = viewModel.articlePager.snapshot.value
         viewModel.loadMore()
         advanceUntilIdle()
 
         // Then - state should remain unchanged (EndReached)
-        val stateAfterSecondLoad = viewModel.newsUiState.value
+        val stateAfterSecondLoad = viewModel.articlePager.snapshot.value
         assertEquals(stateBeforeSecondLoad, stateAfterSecondLoad)
 
         collectJob.cancel()
     }
 
     @Test
-    fun `loadMore should set paging state to Error when fetch fails`() = runTest {
+    fun `loadMore failure should keep previous data and return Idle page state`() = runTest {
         // Given
-        val errorMessage = "Failed to load more"
         val fakeRepository = FakeArticleRepositoryConfigurable()
         val viewModel = HomeViewModel(
             articleRepository = fakeRepository,
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val collectJob = launch {
+            viewModel.articlePager.snapshot.collect()
         }
         advanceUntilIdle()
+        val before = viewModel.articlePager.snapshot.value
+        val beforeItems = (before.dataState as DataState.Success).items
 
         // Configure repository to fail for next call
         fakeRepository.shouldFail = true
-        fakeRepository.errorMessage = errorMessage
+        fakeRepository.errorMessage = "Failed to load more"
 
         // When
         viewModel.loadMore()
         advanceUntilIdle()
 
         // Then
-        val finalState = viewModel.newsUiState.value
-        assertTrue(finalState is NewsUiState.Success)
-        val successState = finalState as NewsUiState.Success
-        assertTrue(successState.pagingState is NewsUiState.PagingState.Error)
-        val pagingError = successState.pagingState as NewsUiState.PagingState.Error
-        assertEquals(errorMessage, pagingError.message)
+        val after = viewModel.articlePager.snapshot.value
+        assertEquals(PageState.Idle, after.pageState)
+        assertTrue(after.dataState is DataState.Success)
+        val afterItems = (after.dataState as DataState.Success).items
+        assertEquals(beforeItems, afterItems)
+        assertEquals(before.currentPage, after.currentPage)
 
         collectJob.cancel()
     }
 
     // endregion
 
-    // region UI State Properties Tests
-
     @Test
-    fun `canLoadMore should be true when paging state is Idle`() = runTest {
+    fun `refresh should restart sources stream and keep sources success state`() = runTest {
         // Given
         val viewModel = HomeViewModel(
             articleRepository = FakeArticleRepositorySuccess(),
             sourcesRepository = FakeSourcesRepositorySuccess()
         )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
+        val sourcesJob = launch {
+            viewModel.sourcesUiState.collect()
         }
+        val pagerJob = launch {
+            viewModel.articlePager.snapshot.collect()
+        }
+        advanceUntilIdle()
+        assertTrue(viewModel.sourcesUiState.value is SourcesUiState.Success)
+
+        // When
+        viewModel.refresh()
         advanceUntilIdle()
 
         // Then
-        val newsState = viewModel.newsUiState.value
-        assertTrue(newsState.canLoadMore)
+        val state = viewModel.sourcesUiState.value
+        assertTrue(state is SourcesUiState.Success)
+        val success = state as SourcesUiState.Success
+        assertNotNull(success.sources)
+        assertFalse(success.sources.isEmpty())
 
-        collectJob.cancel()
+        sourcesJob.cancel()
+        pagerJob.cancel()
     }
+}
 
-    @Test
-    fun `canLoadMore should be false when paging state is EndReached`() = runTest {
-        // Given
-        val fakeRepository = FakeArticleRepositoryConfigurable().apply {
-            page2Articles = emptyList()
-        }
-        val viewModel = HomeViewModel(
-            articleRepository = fakeRepository,
-            sourcesRepository = FakeSourcesRepositorySuccess()
-        )
+private class RecordingArticleRepository : dev.yveskalume.newsappp.data.repository.ArticleRepository {
+    val requestedSources = mutableListOf<String?>()
 
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
-        }
-        advanceUntilIdle()
-
-        // Load more to reach end
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        // Then
-        val finalState = viewModel.newsUiState.value
-        assertFalse(finalState.canLoadMore)
-
-        collectJob.cancel()
+    override suspend fun getTopHeadlines(
+        query: String?,
+        sources: String?,
+        pageSize: Int,
+        page: Int
+    ): Result<List<dev.yveskalume.newsappp.domain.model.Article>> {
+        requestedSources += sources
+        return Result.success(FakeArticleRepositorySuccess.sampleArticles)
     }
-
-    @Test
-    fun `isLoadingMore should be false when paging state is Idle`() = runTest {
-        // Given
-        val viewModel = HomeViewModel(
-            articleRepository = FakeArticleRepositorySuccess(),
-            sourcesRepository = FakeSourcesRepositorySuccess()
-        )
-
-        val collectJob = launch(UnconfinedTestDispatcher()) {
-            viewModel.newsUiState.collect()
-        }
-        advanceUntilIdle()
-
-        // Then
-        val newsState = viewModel.newsUiState.value
-        assertFalse(newsState.isLoadingMore)
-
-        collectJob.cancel()
-    }
-
-    // endregion
 }

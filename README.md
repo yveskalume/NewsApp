@@ -1,4 +1,4 @@
-# NewsAppp - Architecture Madness 🎪
+# NewsAppp
 
 > **Warning**: This project is intentionally over-engineered for educational and experimental purposes. Read at your own risk!
 
@@ -15,7 +15,7 @@ This repository demonstrates different architectural approaches to building the 
 #### MVVM Implementation
 A classic MVVM (Model-View-ViewModel) approach with project-specific patterns like interface-based screen contracts, custom paging, and restartable state flow. See [mvvm/README.md](mvvm/README.md) for details.
 
-#### State-Machine Implementation (Event-Driven and ViewModel without the big when statement)
+#### Event-Driven
 An event-driven architecture where UI dispatches events and reducers handle state transitions. See [state-machine/README.md](state-machine/README.md) for details.
 
 ## Learning Goals
